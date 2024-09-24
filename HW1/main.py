@@ -67,7 +67,7 @@ def extract_text_from_json_data(data):
 
 
 def document_statistics(doc: str) -> tuple[int, int, int]:
-    num_chars = len(re.sub(r'\s+', "", doc))
+    num_chars = len(doc)  # len(re.sub(r'\s+', "", doc))
     num_words = len(doc.split())
     sentences = re.split(r'[.!?]', doc)
     num_sentences = len([s for s in sentences if s.strip()])
@@ -75,7 +75,8 @@ def document_statistics(doc: str) -> tuple[int, int, int]:
 
 
 def search_document(doc: str, keyword: str) -> list[tuple[int, int]]:
-    pattern = r"\W(" + keyword + r")\W"
+    # pattern = r"\W(" + keyword + r")\W"
+    pattern = r".+?(" + keyword + r").+?"
     return [(m.start(1), m.end(1)) for m in re.finditer(pattern, doc)]
 
 
@@ -121,10 +122,15 @@ def main():
         print(f"\r\nPath: {file}")
 
         if file.endswith('xml'):
-            AbstractText = extract_text_from_xml(file)
-            # print(f"AbstractText:\r\n{AbstractText}\r\n")
+            # AbstractText = extract_text_from_xml(file)
+            
+            tree = ET.parse(file)
+            root = tree.getroot()
+            AbstractText = root.find("PubmedArticle").find("MedlineCitation").find("Article").find("Abstract").find("AbstractText").text
+            print(f"AbstractText:\r\n{AbstractText}\r\n")
         elif file.endswith('json'):
-            AbstractText = extract_text_from_json(file)
+            continue
+            # AbstractText = extract_text_from_json(file)
             # print(f"AbstractText:\r\n{AbstractText}\r\n")
 
         num_chars, num_words, num_sentences = document_statistics(AbstractText)
