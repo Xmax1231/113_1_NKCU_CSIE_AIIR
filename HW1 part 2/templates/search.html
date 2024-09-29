@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+
+{% block specialCSS %}
+<style>
+    .part-content {
+        display: block; /* 預設部分文章顯示 */
+    }
+
+    .full-content {
+        display: none; /* 預設全文隱藏 */
+    }
+</style>
+{% endblock %}
+
+
+{% block content %}
+<section class="section">
+    <div class="container">
+        <h1 class="title has-text-centered">內文搜索</h1>
+        <form method="POST" action="/search">
+            <div class="field has-addons has-addons-centered">
+                <div class="control has-icons-left">
+                    <input class="input is-info is-medium" style="width: 90vh;" type="text" name="query" value="{{query}}" placeholder="輸入關鍵字">
+                    <span class="icon is-left">
+                        <i class="fas fa-search"></i>
+                    </span>
+                </div>
+                <div class="control">
+                    <button class="button is-info is-medium" type="submit">搜索</button>
+                </div>
+            </div>
+        </form>
+        <div class="mt-6">
+            <h2 class="title">搜索結果</h2>
+            {% if results %}
+            <div class="content">
+                    {% for result in results %}
+                    <div class="box">
+                        <h2 class="title is-5">{{ result["Title"] }} ({{result["Filename"]}})</h2>
+                        <!-- 部分內容 -->
+                        <p class="part-content">{{ result["vResultString"] | safe }}</p>
+
+                        <!-- 展開後的全文 -->
+                        <p class="full-content">
+                            {{ result["vFullTextResult"] | safe }}
+                        </p>
+
+                        <!-- 展開/收回按鈕 -->
+                        <button class="button is-small toggle-button">顯示全文 ↓</button>
+                    </div>
+                    {% endfor %}
+            </div>
+            {% else %}
+            <!-- <div class="notification is-info">Not found</div> -->
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<!-- 引入 JavaScript -->
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // 獲取所有的展開按鈕
+        const buttons = document.querySelectorAll('.toggle-button');
+
+        buttons.forEach(button => {
+            button.addEventListener('click', () => {
+                // 找到相應的全文段落
+                const excerpt = button.previousElementSibling.previousElementSibling;
+                const fullContent = button.previousElementSibling;
+                
+                // 切換顯示狀態
+                if (fullContent.style.display === 'none' || fullContent.style.display === '') {
+                    excerpt.style.display = 'none';  // 隱藏部分內容
+                    fullContent.style.display = 'block';  // 展開全文
+                    button.textContent = '隱藏全文 ↑';  // 改變按鈕文字
+                } else {
+                    excerpt.style.display = 'block';  // 顯示部分內容
+                    fullContent.style.display = 'none';  // 收起全文
+                    button.textContent = '顯示全文 ↓';  // 改變按鈕文字
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

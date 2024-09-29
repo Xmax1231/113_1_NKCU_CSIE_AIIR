@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+
+{% block content %}
+<section class="section full-height is-flex is-justify-content-center is-align-items-center">
+    <div class="container">
+        <h1 class="title is-1 has-text-centered">內文搜索</h1>
+        <form method="POST" action="/search">
+            <div class="field has-addons has-addons-centered">
+                <div class="control has-icons-left">
+                    <input class="input is-info is-medium is-fullwidth" style="width: 90vh;" type="text" name="query" placeholder="輸入關鍵字" autofocus />
+                    <span class="icon is-left">
+                        <i class="fas fa-search"></i>
+                    </span>
+                </div>
+                <div class="control">
+                    <button class="button is-info is-medium" type="submit">搜索</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</section>
+{% endblock %}

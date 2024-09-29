@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <title>113-1 AIIR HW1</title>
+    <link href="https://cdn.jsdelivr.net/npm/bulma@1.0.2/css/bulma.min.css" rel="stylesheet">
+    <style>
+        /* 使內容全頁置中 */
+        .full-height {
+            height: 90vh;
+        }
+    </style>
+    {% block specialCSS %}
+    {% endblock %}
+</head>
+<body>
+    <nav class="navbar is-dark">
+        <div class="container">    
+            <div id="navbarMenu" class="navbar-menu">
+                <div class="navbar-start">
+                    <a class="navbar-item" href="/">首頁</a>
+                    <a class="navbar-item" href="/manage">管理檔案</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    {% block content %}
+    {% endblock %}
+    
+    <script defer src="https://use.fontawesome.com/releases/v5.3.1/js/all.js"></script>
+</body>
+</html>

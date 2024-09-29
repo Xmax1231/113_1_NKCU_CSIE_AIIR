@@ -1,0 +1,140 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <section class="section">
+        <div class="container">
+            <div class="box">
+                <h1 class="title has-text-centered">文件管理</h1>
+                <div class="field has-addons has-addons-centered">
+                    <div id="drop-zone" class="file is-large is-boxed">
+                        <label class="file-label">
+                            <input id="file-input" class="file-input" type="file" name="files" multiple/>
+                            <span class="file-cta">
+                                <span class="file-icon">
+                                    <i class="fas fa-upload" style="color: white;"></i>
+                                </span>
+                                <span class="file-label"> Choose files… </span>
+                            </span>
+                        </label>
+                    </div>
+
+                    <!-- 檔案上傳按鈕 -->
+                    <!-- <button id="upload-btn" class="button is-primary">上傳檔案</button> -->
+                </div>
+            </div>
+
+            
+            <div class="box mt-3">
+                <h1 class="title has-text-centered">已上傳文件</h1>
+                <table class="table is-fullwidth is-hoverable">
+                    <thead>
+                        <tr>
+                            <th><abbr title="Position">Filename</abbr></th>
+                            <th><abbr title="Position">NumChars</abbr></th>
+                            <th><abbr title="Position">NumWords</abbr></th>
+                            <th><abbr title="Position">NumSentences</abbr></th>
+                            <th><abbr title="Position"></abbr></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for file in files %}
+                        <tr>
+                            <td class="is-size-4">{{ file["Filename"] }}</td>
+                            <td class="is-size-4">{{ file["NumChars"] }}</td>
+                            <td class="is-size-4">{{ file["NumWords"] }}</td>
+                            <td class="is-size-4">{{ file["NumSentences"] }}</td>
+                            <td><button class="button is-small is-danger is-dark is-normal delete-button" data-param="{{ file['Filename'] }}">Delete</button></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        const buttons = document.querySelectorAll('.delete-button');
+        buttons.forEach(button => {
+            button.addEventListener('click', function() {
+                const filename = this.getAttribute('data-param');
+                
+                fetch('/api/delete', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 'filename': filename }),  // 發送檔案名給後端
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message);
+                    } else {
+                        alert(data.message);
+                    }
+                    location.href = window.location.href; // 重新加載當前頁面
+                })
+                .catch(error => console.error('Error:', error));
+            });
+        });
+    </script>
+
+<script>
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    // const uploadBtn = document.getElementById('upload-btn');
+
+    // 拖放事件
+    dropZone.addEventListener('dragover', (event) => {
+        event.preventDefault();
+        dropZone.classList.add('hover');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('hover');
+    });
+
+    dropZone.addEventListener('drop', (event) => {
+        event.preventDefault();
+        dropZone.classList.remove('hover');
+        const files = event.dataTransfer.files;
+        uploadFiles(files);
+    });
+
+    // 點擊上傳檔案
+    // dropZone.addEventListener('click', () => {
+    //     fileInput.click();
+    // });
+
+    // 當選擇檔案時
+    fileInput.addEventListener('change', () => {
+        const files = fileInput.files;
+        uploadFiles(files);
+    });
+
+    // 上傳檔案函數
+    function uploadFiles(files) {
+        const formData = new FormData();
+        for (let i = 0; i < files.length; i++) {
+            formData.append('files', files[i]);  // 將每個檔案添加到 FormData
+        }
+
+        fetch('/api/upload', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            alert(data.message);
+            // 這裡可以添加代碼來更新已上傳檔案的列表
+            location.href = window.location.href; // 重新加載當前頁面
+        })
+        .catch(error => console.error('Error:', error));
+    }
+
+    // 上傳按鈕事件
+    // uploadBtn.addEventListener('click', () => {
+    //     fileInput.click();  // 模擬點擊檔案選擇器
+    // });
+</script>
+{% endblock %}
