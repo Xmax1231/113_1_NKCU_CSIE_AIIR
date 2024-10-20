@@ -7,6 +7,19 @@ import nltk
 from nltk.tokenize import word_tokenize
 from nltk.stem import PorterStemmer
 
+class PorterStemmerWithReversal:
+    def __init__(self):
+        self.stemmer = PorterStemmer()
+        self.stem_dict = defaultdict(set)
+
+    def stem(self, word):
+        stemmed = self.stemmer.stem(word)
+        self.stem_dict[stemmed].add(word)
+        return stemmed
+
+    def get_original_words(self, stemmed_word):
+        return list(self.stem_dict[stemmed_word])
+
 def remove_punctuation(text):
     # 使用正則表達式去除所有標點符號
     return re.sub(r'[^\w\s]', '', text)
@@ -28,7 +41,7 @@ def process_xml_documents(directory, save_file):
     
     word_index = defaultdict(list)
     word_count = defaultdict(int)
-    stemmer = PorterStemmer()
+    stemmer = PorterStemmerWithReversal()
     
     for filename in os.listdir(directory):
         if filename.endswith('.xml'):
@@ -51,8 +64,8 @@ def process_xml_documents(directory, save_file):
                         
                         for position, token in enumerate(tokens):
                             # 應用 Porter Stemming
-                            # stemmed_token = stemmer.stem(token.lower())
-                            stemmed_token = token
+                            stemmed_token = stemmer.stem(token.lower())
+                            # stemmed_token = token
                             if stemmed_token:
                                 word_index[stemmed_token].append((filename, position, title))
                                 word_count[stemmed_token] += 1
@@ -62,24 +75,28 @@ def process_xml_documents(directory, save_file):
     
     print(f"保存數據到 {save_file}")
     with open(save_file, 'wb') as f:
+        # pickle.dump((word_index, word_count, stemmer.stem_dict), f)
         pickle.dump((word_index, word_count), f)
     
-    return word_index, word_count
+    return word_index, word_count, stemmer.stem_dict
 
 # 使用示例
 target = 'Female'
 directory = r'D:\Users\xmax\Documents\GitHub\113_1_NKCU_CSIE_AIIR\SearchDoc\\' + target  # 替換為您的XML文件目錄
-save_file = target + '_tokenizer_data.pkl'  # 數據將被保存到這個文件
-word_index, word_count = process_xml_documents(directory, save_file)
+save_file = target + '_tokenizer_with_porter_data.pkl'  # 數據將被保存到這個文件
+word_index, word_count, stem_dict = process_xml_documents(directory, save_file)
 
-# 打印結果
-print("\n詞彙索引 (前10個):")
-for word, positions in list(word_index.items())[:10]:
-    print(f"{word}: {positions}")
+# 打印一些結果以檢查
+print("\n詞幹索引 (前10個):")
+for stemmed_word, positions in list(word_index.items())[:10]:
+    original_words = stem_dict[stemmed_word]
+    print(f"{stemmed_word} ({', '.join(original_words)}): {positions[:2]}...")  # 只打印前兩個位置
 
-print("\n詞彙計數 (前10個):")
-for word, count in sorted(word_count.items(), key=lambda x: x[1], reverse=True)[:10]:
-    print(f"{word}: {count}")
+print("\n詞幹計數 (前10個):")
+sorted_words = sorted(word_count.items(), key=lambda x: x[1], reverse=True)
+for stemmed_word, count in sorted_words[:10]:
+    original_words = stem_dict[stemmed_word]
+    print(f"{stemmed_word} ({', '.join(original_words)}): {count}")
 
 # 如何在之後載入數據的示例
 def load_data(save_file):
