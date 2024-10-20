@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zipf's Law Visualization Comparison</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.0.0"></script>
+    <style>
+        .chart {
+            height: 300px;
+        }
+        .word-list table {
+            font-size: 0.9em;
+        }
+        #loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .loader {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3273dc;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        #search-results {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading-screen">
+        <div class="loader"></div>
+    </div>
+
+    <section class="section">
+        <div class="container is-fluid">
+            <h1 class="title is-2 has-text-centered">Zipf's Law Visualization Comparison</h1>
+
+            <!-- 添加搜索欄 -->
+            <div class="field has-addons">
+                <div class="control is-expanded">
+                    <input class="input" type="text" id="search-input" placeholder="搜索關鍵字">
+                </div>
+                <div class="control">
+                    <button class="button is-info" onclick="searchWord()">搜索</button>
+                </div>
+            </div>
+
+            <!-- 搜索結果顯示區域 -->
+            <div id="search-results" class="box is-hidden">
+                <h3 class="title is-5">搜索結果</h3>
+                <div id="search-content"></div>
+            </div>
+
+            <div class="columns">
+                <div class="column">
+                    <h2 class="title is-4 has-text-centered">Dataset 1 (Male_tokenizer_data)</h2>
+                    <div class="box">
+                        <h3 class="title is-5 has-text-centered">Word Frequency Distribution</h3>
+                        <div class="field">
+                            <label class="label">Zipf Graph Range:</label>
+                            <div class="control">
+                                <!-- <div class="select">
+                                    <select id="zipfRange1" onchange="updateZipfChart('zipfChart1', data1, this.value)">
+                                        <option value="100">Top 100</option>
+                                        <option value="200">Top 200</option>
+                                        <option value="1000">Top 1000</option>
+                                        <option value="all" selected>All</option>
+                                    </select>
+                                </div> -->
+                            </div>
+                        </div>
+                        <div class="chart">
+                            <canvas id="zipfChart1"></canvas>
+                        </div>
+                    </div>
+                    <div class="box">
+                        <h3 class="title is-5 has-text-centered">Word List</h3>
+                        <div class="field">
+                            <label class="label">Show Words:</label>
+                            <div class="control">
+                                <div class="select">
+                                    <select id="wordCount1" onchange="updateWordList(data1, 'wordListBody1', this.value)">
+                                        <option value="10">Top 10</option>
+                                        <option value="50">Top 50</option>
+                                        <option value="100">Top 100</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="word-list">
+                            <table class="table is-striped is-narrow is-fullwidth">
+                                <thead>
+                                    <tr>
+                                        <th>Rank</th>
+                                        <th>Frequency</th>
+                                        <th>Word</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="wordListBody1">
+                                    <!-- Words for dataset 1 will be populated here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="column">
+                    <h2 class="title is-4 has-text-centered">Dataset 2 (Female_tokenizer_data)</h2>
+                    <div class="box">
+                        <h3 class="title is-5 has-text-centered">Word Frequency Distribution</h3>
+                        <div class="field">
+                            <label class="label">Zipf Graph Range:</label>
+                            <div class="control">
+                                <!-- <div class="select">
+                                    <select id="zipfRange2" onchange="updateZipfChart('zipfChart2', data2, this.value)">
+                                        <option value="100">Top 100</option>
+                                        <option value="200">Top 200</option>
+                                        <option value="1000">Top 1000</option>
+                                        <option value="all" selected>All</option>
+                                    </select>
+                                </div> -->
+                            </div>
+                        </div>
+                        <div class="chart">
+                            <canvas id="zipfChart2"></canvas>
+                        </div>
+                    </div>
+                    <div class="box">
+                        <h3 class="title is-5 has-text-centered">Word List</h3>
+                        <div class="field">
+                            <label class="label">Show Words:</label>
+                            <div class="control">
+                                <div class="select">
+                                    <select id="wordCount2" onchange="updateWordList(data2, 'wordListBody2', this.value)">
+                                        <option value="10" selected>Top 10</option>
+                                        <option value="50">Top 50</option>
+                                        <option value="100">Top 100</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="word-list">
+                            <table class="table is-striped is-narrow is-fullwidth">
+                                <thead>
+                                    <tr>
+                                        <th>Rank</th>
+                                        <th>Frequency</th>
+                                        <th>Word</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="wordListBody2">
+                                    <!-- Words for dataset 2 will be populated here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- New comparison section -->
+            <div class="box mt-6">
+                <h2 class="title is-3 has-text-centered">Dataset Comparison</h2>
+                
+                <!-- Comparison chart -->
+                <div class="chart mb-5">
+                    <canvas id="comparisonChart"></canvas>
+                </div>
+
+                <!-- Common high-frequency words -->
+                <div class="columns">
+                    <div class="column">
+                        <h3 class="title is-5">Common High-Frequency Words</h3>
+                        <table class="table is-striped is-narrow is-fullwidth">
+                            <thead>
+                                <tr>
+                                    <th>Word</th>
+                                    <th>Dataset 1 Frequency</th>
+                                    <th>Dataset 2 Frequency</th>
+                                </tr>
+                            </thead>
+                            <tbody id="commonWordsBody">
+                                <!-- Common words will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="column">
+                        <h3 class="title is-5">Words with Largest Frequency Difference</h3>
+                        <table class="table is-striped is-narrow is-fullwidth">
+                            <thead>
+                                <tr>
+                                    <th>Word</th>
+                                    <th>Dataset 1 Frequency</th>
+                                    <th>Dataset 2 Frequency</th>
+                                    <th>Difference</th>
+                                </tr>
+                            </thead>
+                            <tbody id="differenceWordsBody">
+                                <!-- Words with large differences will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        let data1, data2, chart1, chart2, comparisonChart;
+
+        function showLoading() {
+            document.getElementById('loading-screen').style.display = 'flex';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading-screen').style.display = 'none';
+        }
+
+        function createZipfChart(canvasId, data, range = 'all') {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            const chartData = prepareChartData(data, range);
+            
+            // 確定最大 rank
+            const maxRank = range === 'all' ? Math.max(...chartData.datasets[0].data.map(d => d.x)) : parseInt(range);            
+
+            // 創建一致的刻度間隔
+            const ticks = createConsistentTicks(maxRank);
+
+            const chart = new Chart(ctx, {
+                type: 'scatter',
+                data: chartData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            position: 'bottom',
+                            title: {
+                                display: true,
+                                text: 'Rank'
+                            },
+                            ticks: {
+                                callback: function(value, index, values) {
+                                    return this.getLabelForValue(value);
+                                }
+                            },
+                            min: 1,
+                            max: maxRank,
+                            afterBuildTicks: (axis) => axis.ticks = ticks.map(t => ({value: t}))
+                        },
+                        y: {
+                            type: 'logarithmic',
+                            title: {
+                                display: true,
+                                text: 'Frequency (log scale)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const dataIndex = context.dataIndex;
+                                    const word = data.words[dataIndex];
+                                    const freq = data.frequencies[dataIndex];
+                                    return `${word}: ${freq}`;
+                                }
+                            }
+                        },
+                        annotation: {
+                            annotations: {}
+                        }
+                    }
+                }
+            });
+            return chart;
+        }
+
+        function highlightKeywordOnChart(chart, data, keyword, rank) {
+            const frequency = data.frequencies[rank - 1];
+            
+            chart.options.plugins.annotation.annotations = {
+                point1: {
+                    type: 'point',
+                    xValue: rank,
+                    yValue: frequency,
+                    backgroundColor: 'red',
+                    radius: 8
+                },
+                label1: {
+                    type: 'label',
+                    xValue: rank,
+                    yValue: frequency,
+                    content: keyword,
+                    font: {
+                        size: 16
+                    },
+                    backgroundColor: 'rgba(255,255,255,0.7)',
+                    color: 'black'
+                },
+                arrow1: {
+                    type: 'line',
+                    xMin: rank * 0.9,
+                    xMax: rank,
+                    yMin: frequency * 1.1,
+                    yMax: frequency,
+                    borderColor: 'red',
+                    borderWidth: 2,
+                    label: {
+                        content: 'Here!',
+                        position: 'start'
+                    }
+                }
+            };
+            
+            chart.update();
+        }
+
+        function searchWord() {
+            const searchTerm = document.getElementById('search-input').value.trim().toLowerCase();
+            if (!searchTerm) return;
+
+            showLoading();
+            fetch(`/search?term=${encodeURIComponent(searchTerm)}`)
+                .then(response => response.json())
+                .then(result => {
+                    displaySearchResult(result);
+                    if (result.found) {
+                        if (result.dataset1.rank) {
+                            highlightKeywordOnChart(chart1, data1, searchTerm, result.dataset1.rank);
+                        }
+                        if (result.dataset2.rank) {
+                            highlightKeywordOnChart(chart2, data2, searchTerm, result.dataset2.rank);
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error searching:', error);
+                    // 可以在這裡添加錯誤處理邏輯
+                })
+                .finally(() => {
+                    hideLoading();
+                });
+        }
+
+        function createConsistentTicks(maxRank) {
+            const ticks = [1];
+            let currentTick = 1;
+            const increment = Math.ceil(maxRank / 10);  // 將範圍分成大約10個刻度
+
+            while (currentTick < maxRank) {
+                currentTick += increment;
+                if (currentTick <= maxRank) {
+                    ticks.push(currentTick);
+                }
+            }
+
+            return ticks;
+        }
+
+        function prepareChartData(data, range) {
+            const limit = range === 'all' ? data.ranks.length : parseInt(range);
+            return {
+                datasets: [{
+                    label: 'Word Frequency',
+                    data: data.ranks.slice(0, limit).map((rank, index) => ({
+                        x: rank,
+                        y: data.frequencies[index]
+                    })),
+                    backgroundColor: 'rgba(72, 95, 199, 0.6)'
+                }, {
+                    label: 'Ideal Zipf Distribution',
+                    data: data.ranks.slice(0, limit).map((rank, index) => ({
+                        x: rank,
+                        y: data.ideal_zipf[index]
+                    })),
+                    type: 'line',
+                    borderColor: 'rgba(241, 70, 104, 1)',
+                    borderDash: [5, 5],
+                    pointRadius: 0
+                }]
+            };
+        }
+
+        function updateZipfChart(canvasId, data, range) {
+            const chart = canvasId === 'zipfChart1' ? chart1 : chart2;
+            const newData = prepareChartData(data, range);
+            chart.data = newData;
+            chart.update();
+        }
+
+        function updateWordList(data, tableBodyId, count) {
+            const tableBody = document.getElementById(tableBodyId);
+            tableBody.innerHTML = '';
+            data.words.slice(0, parseInt(count)).forEach((word, index) => {
+                const row = tableBody.insertRow();
+                row.insertCell(0).textContent = index + 1;
+                row.insertCell(1).textContent = data.frequencies[index];
+                row.insertCell(2).textContent = word;
+            });
+        }
+
+        function createComparisonChart(data1, data2) {
+            const ctx = document.getElementById('comparisonChart').getContext('2d');
+            const commonWords = getCommonWords(data1, data2, 20);  // Get top 20 common words
+
+            comparisonChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: commonWords.map(w => w.word),
+                    datasets: [
+                        {
+                            label: 'Dataset 1',
+                            data: commonWords.map(w => w.freq1),
+                            backgroundColor: 'rgba(72, 95, 199, 0.6)'
+                        },
+                        {
+                            label: 'Dataset 2',
+                            data: commonWords.map(w => w.freq2),
+                            backgroundColor: 'rgba(241, 70, 104, 0.6)'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Frequency'
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Frequency Comparison of Common Words'
+                        }
+                    }
+                }
+            });
+        }
+
+        function getCommonWords(data1, data2, n) {
+            const wordSet1 = new Set(data1.words.slice(0, 100));  // Consider top 100 words
+            const wordSet2 = new Set(data2.words.slice(0, 100));
+            const commonWords = [...wordSet1].filter(word => wordSet2.has(word));
+            
+            return commonWords.slice(0, n).map(word => ({
+                word,
+                freq1: data1.frequencies[data1.words.indexOf(word)],
+                freq2: data2.frequencies[data2.words.indexOf(word)]
+            }));
+        }
+
+        function getWordsDifference(data1, data2, n) {
+            const allWords = new Set([...data1.words, ...data2.words]);
+            const differences = [...allWords].map(word => {
+                const freq1 = data1.frequencies[data1.words.indexOf(word)] || 0;
+                const freq2 = data2.frequencies[data2.words.indexOf(word)] || 0;
+                return {word, freq1, freq2, diff: Math.abs(freq1 - freq2)};
+            });
+            return differences.sort((a, b) => b.diff - a.diff).slice(0, n);
+        }
+
+        function updateComparisonTables(data1, data2) {
+            const commonWords = getCommonWords(data1, data2, 10);
+            const commonWordsBody = document.getElementById('commonWordsBody');
+            commonWordsBody.innerHTML = '';
+            commonWords.forEach(({word, freq1, freq2}) => {
+                const row = commonWordsBody.insertRow();
+                row.insertCell(0).textContent = word;
+                row.insertCell(1).textContent = freq1;
+                row.insertCell(2).textContent = freq2;
+            });
+
+            const diffWords = getWordsDifference(data1, data2, 10);
+            const diffWordsBody = document.getElementById('differenceWordsBody');
+            diffWordsBody.innerHTML = '';
+            diffWords.forEach(({word, freq1, freq2, diff}) => {
+                const row = diffWordsBody.insertRow();
+                row.insertCell(0).textContent = word;
+                row.insertCell(1).textContent = freq1;
+                row.insertCell(2).textContent = freq2;
+                row.insertCell(3).textContent = diff.toFixed(2);
+            });
+        }
+
+        function displaySearchResult(result) {
+            const resultDiv = document.getElementById('search-results');
+            const contentDiv = document.getElementById('search-content');
+            contentDiv.innerHTML = '';
+
+            if (result.found) {
+                contentDiv.innerHTML = `
+                    <p><strong>關鍵字:</strong> ${result.term}</p>
+                    <p><strong>Dataset 1 Rank:</strong> ${result.dataset1.rank}</p>
+                    <p><strong>Dataset 1 頻率:</strong> ${result.dataset1.frequency}</p>
+                    <p><strong>Dataset 2 Rank:</strong> ${result.dataset2.rank}</p>
+                    <p><strong>Dataset 2 頻率:</strong> ${result.dataset2.frequency}</p>
+                    <h4 class="title is-6">出現位置:</h4>
+                    <ul>
+                        ${result.dataset1.positions.map(pos => `<li>文件: ${pos.file}, 位置: ${pos.position}, 標題: ${pos.title}</li>`).join('')}
+                        ${result.dataset2.positions.map(pos => `<li>文件: ${pos.file}, 位置: ${pos.position}, 標題: ${pos.title}</li>`).join('')}
+                    </ul>
+                `;
+            } else {
+                contentDiv.innerHTML = `<p>未找到關鍵字 "${result.term}"</p>`;
+            }
+
+            resultDiv.classList.remove('is-hidden');
+        }
+
+        showLoading();
+
+        // 假設我們有兩個數據集的 API 端點
+        Promise.all([
+            fetch('/data1').then(response => response.json()),
+            fetch('/data2').then(response => response.json())
+        ]).then(([d1, d2]) => {
+            data1 = d1;
+            data2 = d2;
+            chart1 = createZipfChart('zipfChart1', data1, 20000);
+            chart2 = createZipfChart('zipfChart2', data2, 20000);
+            updateWordList(data1, 'wordListBody1', 10);
+            updateWordList(data2, 'wordListBody2', 10);
+
+            createComparisonChart(data1, data2);
+            updateComparisonTables(data1, data2);
+        }).finally(()=>{
+            hideLoading();
+        });
+    </script>
+</body>
+</html>
