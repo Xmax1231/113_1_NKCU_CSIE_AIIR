@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Analysis Results</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <!-- Add AnyChart -->
+    <script src="https://cdn.anychart.com/releases/8.11.0/js/anychart-core.min.js"></script>
+    <script src="https://cdn.anychart.com/releases/8.11.0/js/anychart-tag-cloud.min.js"></script>
+    <!-- Add Plotly.js -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <!-- Add AnyChart for word cloud -->
+    <script src="https://cdn.anychart.com/releases/8.11.0/js/anychart-core.min.js"></script>
+    <script src="https://cdn.anychart.com/releases/8.11.0/js/anychart-tag-cloud.min.js"></script>
+    <style>
+        /* 自定義容器最大寬度 */
+        .container-wide {
+            max-width: 1600px;  /* 增加最大寬度 */
+            margin: 0 auto;
+            padding: 0 1rem;
+        }
+        
+        /* 調整繪圖容器高度 */
+        .plot-container {
+            height: 700px;  /* 增加高度 */
+            width: 100%;
+        }
+        
+        /* 確保圖表響應式且保持比例 */
+        .plot-wrapper {
+            position: relative;
+            width: 100%;
+            padding-top: 2rem;  /* 增加上方間距 */
+        }
+
+        .wordcloud-container {
+            min-height: 600px; /* 增加最小高度 */
+            height: 70vh;      /* 使用視窗高度的70% */
+            width: 100%;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold mb-8">Analysis Results for "{{ results.query }}"</h1>
+        
+        <!-- Performance Metrics Section -->
+        <div class="bg-white shadow-md rounded p-6 mb-6">
+            <h2 class="text-xl font-bold mb-4">Performance Metrics</h2>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <p class="font-semibold">Articles retrieved:</p>
+                    <p>{{ results.metrics.article_count }}</p>
+                </div>
+                <div>
+                    <p class="font-semibold">Fetch time:</p>
+                    <p>{{ "%.2f"|format(results.metrics.fetch_time) }} seconds</p>
+                </div>
+                <div>
+                    <p class="font-semibold">Training time:</p>
+                    <p>{{ "%.2f"|format(results.metrics.training_time) }} seconds</p>
+                </div>
+                <div>
+                    <p class="font-semibold">Vocabulary size:</p>
+                    <p>{{ results.metrics.vocabulary_size }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Word Clouds Section -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <!-- Skip-gram Word Cloud -->
+            <div class="bg-white shadow-md rounded p-6">
+                <h2 class="text-xl font-bold mb-4">Skip-gram Model Word Cloud</h2>
+                <div id="skipgram-wordcloud" class="wordcloud-container"></div>
+            </div>
+            
+            <!-- CBOW Word Cloud -->
+            <div class="bg-white shadow-md rounded p-6">
+                <h2 class="text-xl font-bold mb-4">CBOW Model Word Cloud</h2>
+                <div id="cbow-wordcloud" class="wordcloud-container"></div>
+            </div>
+        </div>
+
+        <!-- Word Embeddings Visualization Section -->
+        <div class="space-y-8">  <!-- 改用垂直布局 -->
+            <!-- Skip-gram Embeddings -->
+            <div class="bg-white shadow-md rounded p-6">
+                <h2 class="text-xl font-bold mb-2">Skip-gram Word Embeddings</h2>
+                <p class="text-gray-600 mb-4">
+                    基於 Skip-gram 模型的詞向量分布圖
+                </p>
+                <div class="plot-wrapper">
+                    <div id="skipgram-plot" class="plot-container"></div>
+                </div>
+            </div>
+            
+            <!-- CBOW Embeddings -->
+            <div class="bg-white shadow-md rounded p-6">
+                <h2 class="text-xl font-bold mb-2">CBOW Word Embeddings</h2>
+                <p class="text-gray-600 mb-4">
+                    基於 CBOW 模型的詞向量分布圖
+                </p>
+                <div class="plot-wrapper">
+                    <div id="cbow-plot" class="plot-container"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Model Results Section -->
+        {% for model_type, model_data in results.models.items() %}
+        <!-- <div class="bg-white shadow-md rounded p-6 mb-6">
+            <h2 class="text-xl font-bold mb-4">{{ model_type|upper }} Model Results</h2>
+            
+            <div class="mb-6">
+                <h3 class="font-bold mb-2">Similar Words</h3>
+                <table class="min-w-full table-auto">
+                    <thead>
+                        <tr>
+                            <th class="px-4 py-2 bg-gray-100">Word</th>
+                            <th class="px-4 py-2 bg-gray-100">Similarity</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for word in model_data.similar_words %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="border px-4 py-2">{{ word.word }}</td>
+                            <td class="border px-4 py-2">{{ "%.4f"|format(word.similarity) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div> -->
+        {% endfor %}
+        
+        <div class="mt-8">
+            <a href="/" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition duration-200">
+                New Analysis
+            </a>
+        </div>
+    </div>
+
+    <script>
+        function createWordCloud(containerId, data, title) {
+            var chart = anychart.tagCloud();
+            
+            // 設置數據
+            chart.data(data);
+            
+            // 設置標題
+            chart.title()
+                .text(title)
+                .fontColor('#333')
+                .fontSize(20)
+                .fontWeight('bold')
+                .padding([0, 0, 20, 0]);
+            
+            // 設置外觀
+            chart.angles([0]);
+            
+            // 設置標籤樣式
+            var normal = chart.normal();
+            normal.fontWeight('400');
+            normal.fontSize(14);
+            normal.fontFamily('Arial');
+            
+            var hovered = chart.hovered();
+            hovered.fontWeight('bold');
+            hovered.fontSize('150%');
+            
+            var selected = chart.selected();
+            selected.fontWeight('bold');
+            selected.fontSize('150%');
+            
+            // 設置文字間距
+            chart.textSpacing(3);
+            
+            // 設置顏色範圍
+            chart.colorRange().enabled(true);
+            chart.colorRange().length('80%');
+            
+            // 設置顏色尺度
+            var colorScale = anychart.scales.linearColor();
+            colorScale.colors(['#ADE8F4', '#023E8A']);
+            chart.colorScale(colorScale);
+            
+            // 設置提示框
+            chart.tooltip().format(function() {
+                return 'Word: ' + this.x + '\nImportance: ' + this.value.toFixed(4);
+            });
+            
+            // 啟用動畫
+            chart.animation(true);
+            chart.animation().duration(1000);
+            
+            // 設置容器並繪製
+            chart.container(containerId);
+            chart.draw();
+            
+            // 添加互動效果
+            chart.listen('pointsHover', function(e) {
+                document.body.style.cursor = e.point ? 'pointer' : 'default';
+            });
+        }
+
+        anychart.onDocumentReady(function() {
+            // 創建Skip-gram模型的文字雲
+            createWordCloud(
+                'skipgram-wordcloud',
+                {{ results.word_frequencies.skipgram|tojson|safe }},
+                'Skip-gram Model Word Frequencies'
+            );
+            
+            // 創建CBOW模型的文字雲
+            createWordCloud(
+                'cbow-wordcloud',
+                {{ results.word_frequencies.cbow|tojson|safe }},
+                'CBOW Model Word Frequencies'
+            );
+        });
+    </script>
+    <script>
+        function createEmbeddingPlot(containerId, data, title) {
+            if (!data || data.length === 0) {
+                document.getElementById(containerId).innerHTML = 
+                    `<p class="text-gray-500 text-center">No embedding data available for ${title}</p>`;
+                return;
+            }
+
+            // 準備數據
+            const trace = {
+                type: 'scatter',
+                mode: 'markers+text',
+                x: data.map(d => d.x),
+                y: data.map(d => d.y),
+                text: data.map(d => d.word),
+                textposition: 'top center',
+                textfont: {
+                    size: 12,
+                    color: '#333333'
+                },
+                marker: {
+                    size: 8,
+                    color: data.map(d => d.vector_norm),
+                    colorscale: [
+                        [0, 'rgb(173,232,244)'],
+                        [1, 'rgb(2,62,138)']
+                    ],
+                    showscale: true,
+                    colorbar: {
+                        title: 'Vector Strength',
+                        thickness: 15,
+                        len: 0.5
+                    }
+                },
+                hovertemplate:
+                    '<b>Word:</b> %{text}<br>' +
+                    '<b>Vector Strength:</b> %{marker.color:.2f}<br>' +
+                    '<extra></extra>'
+            };
+
+            const layout = {
+                title: {
+                    text: title,
+                    font: { size: 16, weight: 'bold' }
+                },
+                xaxis: {
+                    title: 'Dimension 1',
+                    zeroline: true,
+                    showgrid: true
+                },
+                yaxis: {
+                    title: 'Dimension 2',
+                    zeroline: true,
+                    showgrid: true
+                },
+                hovermode: 'closest',
+                // 添加註解說明
+                annotations: [{
+                    text: '距離越近的詞，含義越相近',
+                    showarrow: false,
+                    x: 0.5,
+                    y: 1.1,
+                    xref: 'paper',
+                    yref: 'paper',
+                    font: {
+                        size: 12,
+                        color: 'gray'
+                    }
+                }],
+                // 添加選擇模式
+                dragmode: 'lasso',
+                showlegend: false
+            };
+
+            const config = {
+                responsive: true,
+                displayModeBar: true,
+                displaylogo: false,
+                modeBarButtons: [[
+                    'zoom2d',
+                    'pan2d',
+                    'select2d',
+                    'lasso2d',
+                    'zoomIn2d',
+                    'zoomOut2d',
+                    'autoScale2d',
+                    'resetScale2d'
+                ]],
+                toImageButtonOptions: {
+                    format: 'png',
+                    filename: `word_embeddings_${title.toLowerCase()}`,
+                    height: 800,
+                    width: 1200,
+                    scale: 2
+                }
+            };
+
+            const plot = Plotly.newPlot(containerId, [trace], layout, config);
+
+            // 添加選擇事件處理
+            document.getElementById(containerId).on('plotly_selected', function(eventData) {
+                if (eventData) {
+                    const points = eventData.points;
+                    const selectedWords = points.map(p => p.text);
+                    
+                    // 計算選中詞之間的平均距離
+                    let avgDistance = 0;
+                    let count = 0;
+                    for (let i = 0; i < points.length; i++) {
+                        for (let j = i + 1; j < points.length; j++) {
+                            const dist = Math.sqrt(
+                                Math.pow(points[i].x - points[j].x, 2) +
+                                Math.pow(points[i].y - points[j].y, 2)
+                            );
+                            avgDistance += dist;
+                            count++;
+                        }
+                    }
+                    avgDistance = count > 0 ? avgDistance / count : 0;
+
+                    // 顯示選中詞的資訊
+                    const infoDiv = document.createElement('div');
+                    infoDiv.className = 'mt-4 p-4 bg-blue-50 rounded';
+                    infoDiv.innerHTML = `
+                        <h3 class="font-bold">Selected Words Analysis</h3>
+                        <p>Selected words: ${selectedWords.join(', ')}</p>
+                        <p>Average semantic distance: ${avgDistance.toFixed(4)}</p>
+                        <p>These words appear in similar contexts in the analyzed documents.</p>
+                    `;
+
+                    const container = document.getElementById(containerId).parentNode;
+                    const existingInfo = container.querySelector('.mt-4');
+                    if (existingInfo) {
+                        container.removeChild(existingInfo);
+                    }
+                    container.appendChild(infoDiv);
+                }
+            });
+
+            // 添加點擊事件
+            // document.getElementById(containerId).on('plotly_click', function(data) {
+            //     if (data.points && data.points.length > 0) {
+            //         const point = data.points[0];
+            //         const word = point.text;
+                    
+            //         // 計算與所有其他詞的距離
+            //         const distances = data.points.map(p => ({
+            //             word: p.text,
+            //             distance: Math.sqrt(
+            //                 Math.pow(point.x - p.x, 2) +
+            //                 Math.pow(point.y - p.y, 2)
+            //             )
+            //         })).sort((a, b) => a.distance - b.distance)
+            //         .slice(1, 6);  // 取最近的5個詞
+
+            //         console.log(`Most similar words to "${word}":`, distances);
+            //     }
+            // });
+        }
+
+        // 當文檔加載完成時創建圖表
+        document.addEventListener('DOMContentLoaded', function() {
+            const embeddings = {{ results.get('embeddings', {}) | tojson | safe }};
+            
+            if (embeddings.skipgram) {
+                createEmbeddingPlot('skipgram-plot', embeddings.skipgram, 'Skip-gram');
+            }
+            
+            if (embeddings.cbow) {
+                createEmbeddingPlot('cbow-plot', embeddings.cbow, 'CBOW');
+            }
+
+            // 添加視窗大小改變事件處理
+            window.addEventListener('resize', function() {
+                if (embeddings.skipgram) {
+                    Plotly.Plots.resize('skipgram-plot');
+                }
+                if (embeddings.cbow) {
+                    Plotly.Plots.resize('cbow-plot');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

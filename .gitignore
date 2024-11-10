@@ -2,3 +2,6 @@
 *.xml
 *.pyc
 /HW1 part 2/myenv
+*.model
+*.png
+HW3/system_report.txt

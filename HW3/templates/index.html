@@ -1,0 +1,217 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PubMed Word2Vec Analysis</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        /* Loading 動畫樣式 */
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-content {
+            text-align: center;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .progress-bar {
+            width: 300px;
+            height: 8px;
+            background-color: #f3f3f3;
+            border-radius: 4px;
+            margin: 10px auto;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background-color: #3498db;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-content">
+            <div class="loading-spinner mb-4"></div>
+            <h2 class="text-xl font-bold text-gray-800 mb-2">Processing Your Request</h2>
+            <p class="text-gray-600 mb-4" id="loadingStatus">Initializing...</p>
+            
+            <div class="loading-steps text-left max-w-md mx-auto">
+                <div id="step1" class="step mb-2 text-gray-400">
+                    ◯ Fetching PubMed articles...
+                </div>
+                <div id="step2" class="step mb-2 text-gray-400">
+                    ◯ Processing text data...
+                </div>
+                <div id="step3" class="step mb-2 text-gray-400">
+                    ◯ Training Word2Vec models...
+                </div>
+                <div id="step4" class="step mb-2 text-gray-400">
+                    ◯ Generating visualizations...
+                </div>
+            </div>
+
+            <div class="progress-bar">
+                <div id="progressBarFill" class="progress-bar-fill"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold mb-8">PubMed Word2Vec Analysis</h1>
+        
+        {% if error %}
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+            <strong class="font-bold">Error!</strong>
+            <span class="block sm:inline">{{ error }}</span>
+        </div>
+        {% endif %}
+        
+        <form id="analysisForm" class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
+            <div class="mb-6">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="query">
+                    Search Query (e.g., covid-19, enterovirus)
+                </label>
+                <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+                       id="query" name="query" value="covid-19" required>
+                <p class="text-gray-600 text-xs italic mt-1">Enter a disease, gene, or topic to analyze</p>
+            </div>
+            
+            <div class="mb-6">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="max_results">
+                    Number of Articles (100-10000)
+                </label>
+                <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+                       id="max_results" name="max_results" type="number" value="1000" 
+                       min="100" max="10000" required>
+                <p class="text-gray-600 text-xs italic mt-1">Specify how many articles to analyze (minimum 100, maximum 10000)</p>
+            </div>
+            
+            <div class="flex items-center justify-between">
+                <button type="submit" id="submitBtn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition duration-200">
+                    Analyze
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        function updateProgress(step, percentage) {
+            document.getElementById('progressBarFill').style.width = `${percentage}%`;
+            document.getElementById('loadingStatus').textContent = 
+                `Processing... ${percentage}% complete`;
+            
+            const steps = document.getElementsByClassName('step');
+            for (let i = 0; i < steps.length; i++) {
+                if (i < step) {
+                    steps[i].innerHTML = steps[i].innerHTML.replace('◯', '✓');
+                    steps[i].classList.remove('text-gray-400');
+                    steps[i].classList.add('text-green-600');
+                } else if (i === step) {
+                    steps[i].innerHTML = steps[i].innerHTML.replace('◯', '●');
+                    steps[i].classList.remove('text-gray-400');
+                    steps[i].classList.add('text-blue-600');
+                }
+            }
+        }
+
+        document.getElementById('analysisForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            // 禁用提交按鈕
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            
+            // 顯示 loading 畫面
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            loadingOverlay.style.display = 'flex';
+            
+            // 重置進度
+            document.getElementById('progressBarFill').style.width = '0%';
+            document.getElementById('loadingStatus').textContent = 'Starting analysis...';
+            
+            try {
+                // 準備表單數據
+                const formData = new FormData(this);
+                
+                // 更新進度
+                updateProgress(0, 20);
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                updateProgress(1, 40);
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // 發送請求
+                const response = await fetch('/process', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                updateProgress(2, 60);
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                updateProgress(3, 80);
+                const html = await response.text();
+                
+                // 完成處理
+                updateProgress(4, 100);
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                // 更新頁面內容
+                document.open();
+                document.write(html);
+                document.close();
+                
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred while processing your request. Please try again.');
+                loadingOverlay.style.display = 'none';
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+        });
+
+        // 驗證輸入
+        document.getElementById('max_results').addEventListener('input', function(e) {
+            let value = parseInt(e.target.value);
+            if (value < 100) e.target.value = 100;
+            if (value > 10000) e.target.value = 10000;
+        });
+    </script>
+</body>
+</html>
