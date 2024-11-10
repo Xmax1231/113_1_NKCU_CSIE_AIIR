@@ -43,6 +43,23 @@
 <body class="bg-gray-100">
     <div class="container mx-auto px-4 py-8">
         <h1 class="text-3xl font-bold mb-8">Analysis Results for "{{ results.query }}"</h1>
+
+        {% if is_cached %}
+        <div class="bg-blue-100 border-l-4 border-blue-500 p-4 mb-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v3.586L7.707 9.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 10.586V7z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-blue-700">
+                        Results loaded from cache (Cached at: {{ cache_time }})
+                    </p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
         
         <!-- Performance Metrics Section -->
         <div class="bg-white shadow-md rounded p-6 mb-6">

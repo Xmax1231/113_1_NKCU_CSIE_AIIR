@@ -16,12 +16,13 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.manifold import TSNE
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import json
 from wordcloud import WordCloud
 from collections import Counter
 import traceback
+import pickle
 
 def check_nltk_resources():
     """
@@ -50,14 +51,13 @@ def check_nltk_resources():
     print("All required NLTK resources check completed!\n")
 
 class PubMedWord2Vec:
-    def __init__(self, email, static_folder='static'):
+    def __init__(self, email, static_folder='static', cache_folder='cache'):
         """
         Initialize the Word2Vec processor
         """
-        check_nltk_resources()
-
         self.email = email
         self.static_folder = static_folder
+        self.cache_folder = cache_folder
         
         # Initialize NLTK components
         self.lemmatizer = WordNetLemmatizer()
@@ -68,12 +68,119 @@ class PubMedWord2Vec:
         self.results = {}
         self.word_freq = {}  # 初始化詞頻字典
         
-        # Ensure static folder exists
-        if not os.path.exists(static_folder):
-            os.makedirs(static_folder)
+        # 創建快取資料夾
+        for folder in [static_folder, cache_folder]:
+            if not os.path.exists(folder):
+                os.makedirs(folder)
+        
+        self.cache_index_file = os.path.join(cache_folder, 'cache_index.json')
+        self.load_cache_index()
         
         # Set up Entrez email
         Entrez.email = email
+    
+    def load_cache_index(self):
+        """載入快取索引"""
+        try:
+            if os.path.exists(self.cache_index_file):
+                with open(self.cache_index_file, 'r', encoding='utf-8') as f:
+                    self.cache_index = json.load(f)
+            else:
+                self.cache_index = {}
+        except Exception as e:
+            print(f"Error loading cache index: {e}")
+            self.cache_index = {}
+    
+    def save_cache_index(self):
+        """保存快取索引"""
+        try:
+            with open(self.cache_index_file, 'w', encoding='utf-8') as f:
+                json.dump(self.cache_index, f, indent=2)
+        except Exception as e:
+            print(f"Error saving cache index: {e}")
+    
+    def get_cache_key(self, query, max_results):
+        """生成快取鍵值"""
+        return f"{query}_{max_results}"
+
+    def save_to_cache(self, query, max_results, results):
+        """保存結果到快取"""
+        try:
+            cache_key = self.get_cache_key(query, max_results)
+            
+            # 保存模型檔案
+            for model_type in ['skipgram', 'cbow']:
+                if model_type in results.get('models', {}):
+                    model_file = results['models'][model_type]['model_file']
+                    if os.path.exists(os.path.join(self.static_folder, model_file)):
+                        cache_model_file = os.path.join(self.cache_folder, model_file)
+                        os.replace(
+                            os.path.join(self.static_folder, model_file),
+                            cache_model_file
+                        )
+            
+            # 保存結果
+            cache_file = os.path.join(self.cache_folder, f"{cache_key}.pkl")
+            with open(cache_file, 'wb') as f:
+                pickle.dump(results, f)
+            
+            # 更新索引
+            self.cache_index[cache_key] = {
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'file': cache_file,
+                'query': query,
+                'max_results': max_results
+            }
+            self.save_cache_index()
+            
+            print(f"Results cached for query: {query}")
+            
+        except Exception as e:
+            print(f"Error saving to cache: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def load_from_cache(self, query, max_results):
+        """從快取載入結果"""
+        try:
+            cache_key = self.get_cache_key(query, max_results)
+            if cache_key not in self.cache_index:
+                return None
+            
+            cache_info = self.cache_index[cache_key]
+            
+            # 檢查快取是否過期（例如7天）
+            cache_date = datetime.strptime(cache_info['timestamp'], '%Y-%m-%d %H:%M:%S')
+            if datetime.now() - cache_date > timedelta(days=7):
+                print("Cache expired")
+                return None
+            
+            # 載入快取的結果
+            if os.path.exists(cache_info['file']):
+                with open(cache_info['file'], 'rb') as f:
+                    results = pickle.load(f)
+                
+                # 重新載入模型檔案到 static 資料夾
+                for model_type in ['skipgram', 'cbow']:
+                    if model_type in results.get('models', {}):
+                        model_file = results['models'][model_type]['model_file']
+                        cache_model_file = os.path.join(self.cache_folder, model_file)
+                        if os.path.exists(cache_model_file):
+                            os.replace(
+                                cache_model_file,
+                                os.path.join(self.static_folder, model_file)
+                            )
+                
+                print(f"Results loaded from cache for query: {query}")
+                return results
+            
+            return None
+            
+        except Exception as e:
+            print(f"Error loading from cache: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
 
     def fetch_pubmed_data(self, query, max_results=1000):
         """
@@ -238,6 +345,30 @@ class PubMedWord2Vec:
             return []
 
     def process_query(self, query, max_results=1000):
+        """處理查詢，加入快取機制"""
+        try:
+            # 嘗試從快取載入
+            cached_results = self.load_from_cache(query, max_results)
+            if cached_results is not None:
+                return cached_results
+
+            print(f"No cache found for query: {query}. Processing new request...")
+            
+            # 如果沒有快取，執行正常的處理流程
+            results = self._process_query_internal(query, max_results)
+            
+            # 保存結果到快取
+            self.save_to_cache(query, max_results, results)
+            
+            return results
+            
+        except Exception as e:
+            print(f"Error in process_query: {e}")
+            import traceback
+            traceback.print_exc()
+            raise
+
+    def _process_query_internal(self, query, max_results=1000):
         """
         Process the query and return all results
         """
