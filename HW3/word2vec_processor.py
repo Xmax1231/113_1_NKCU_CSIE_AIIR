@@ -54,6 +54,8 @@ class PubMedWord2Vec:
         """
         Initialize the Word2Vec processor
         """
+        check_nltk_resources()
+
         self.email = email
         self.static_folder = static_folder
         
