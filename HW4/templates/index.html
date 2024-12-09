@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medical Text Analysis</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .highlighted-sentence {
+            background-color: #fef08a;  /* 淡黃色背景 */
+            padding: 2px 0;
+            border-radius: 2px;
+            transition: background-color 0.3s;
+        }
+        .highlighted-sentence:hover {
+            background-color: #fde047;  /* hover時加深黃色 */
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="container mx-auto p-6 max-w-4xl">
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h1 class="text-2xl font-bold mb-4">Medical Text Analysis</h1>
+            
+            <div class="mb-4 flex space-x-4">
+                <div>
+                    <label for="datasetSelect" class="block text-sm font-medium text-gray-700 mb-1">
+                        Dataset
+                    </label>
+                    <select id="datasetSelect" class="border rounded p-2">
+                        <option value="cancer">Cancer</option>
+                        <option value="covid">COVID-19</option>
+                        <option value="enterovirus">Enterovirus</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label for="tfidfSelect" class="block text-sm font-medium text-gray-700 mb-1">
+                        TF-IDF Variant
+                    </label>
+                    <select id="tfidfSelect" class="border rounded p-2">
+                        <option value="standard">Standard TF-IDF</option>
+                        <option value="binary">Binary TF-IDF</option>
+                        <option value="log_norm">Log Normalized TF-IDF</option>
+                        <option value="raw_freq">Raw Frequency</option>
+                    </select>
+                </div>
+                
+                <div class="self-end">
+                    <button id="analyzeBtn" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                        Analyze
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-lg font-bold mb-3">TF-IDF Variant Information</h2>
+            <div id="tfidfInfo" class="text-sm text-gray-600">
+                <!-- 動態更新說明內容 -->
+            </div>
+        </div>
+
+        <div id="results" class="space-y-6 hidden">
+            <!-- Target Document -->
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold">Target Document</h2>
+                    <div class="flex space-x-4">
+                        <span id="pmid" class="text-gray-600"></span>
+                        <span id="corpusSize" class="text-gray-600"></span>
+                    </div>
+                </div>
+                <div id="targetDocument" class="text-gray-700"></div>
+            </div>
+
+            <!-- Top Terms -->
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-xl font-bold mb-4">Top Document Terms</h2>
+                <div id="topTerms" class="grid grid-cols-2 md:grid-cols-3 gap-4"></div>
+            </div>
+
+            <!-- Ranked Sentences -->
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-xl font-bold mb-4">Top Ranked Sentences</h2>
+                <div id="rankedSentences" class="space-y-4"></div>
+            </div>
+
+            <!-- Vocabulary Info -->
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-xl font-bold mb-4">Vocabulary Information</h2>
+                <p id="vocabularySize" class="text-gray-700"></p>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading" class="hidden text-center py-8">
+            Analyzing the dataset...
+        </div>
+    </div>
+
+    <script>
+        // TF-IDF變體說明
+        const tfidfDescriptions = {
+            'standard': '標準 TF-IDF 使用詞頻乘以逆文檔頻率。這種方法可以平衡詞語在單篇文檔中的重要性以及在整個文集中的普遍程度。適合一般文本分析任務。',
+            'binary': '二元 TF-IDF 只考慮詞語是否出現（1表示出現，0表示未出現），而不計算出現次數。當詞語的存在比出現頻率更重要時，這種方法特別有用，例如關鍵字檢測。',
+            'log_norm': '對數正規化 TF-IDF 對詞頻進行對數轉換，可以降低高頻詞的影響力。這種方法有助於防止常見詞語主導分析結果，使得罕見但重要的詞語也能得到適當的權重。',
+            'raw_freq': '原始頻率只使用詞頻，不考慮IDF權重。這種方法專注於詞語在個別文檔中的重要性，不考慮詞語在整個文集中的分布情況。適合分析單一文檔中的詞語重要性。'
+        };
+
+        function escapeRegExp(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        function highlightSentences(text, sentences) {
+            let highlightedText = text;
+            const fragments = [];
+            let lastIndex = 0;
+
+            // 將句子按照在原文中的位置排序
+            sentences.sort((a, b) => {
+                const indexA = text.indexOf(a.text);
+                const indexB = text.indexOf(b.text);
+                return indexA - indexB;
+            });
+
+            sentences.forEach((sentence) => {
+                const sentenceText = sentence.text;
+                const index = text.indexOf(sentenceText, lastIndex);
+                
+                if (index !== -1) {
+                    // 添加句子前的文本
+                    if (index > lastIndex) {
+                        fragments.push(text.substring(lastIndex, index));
+                    }
+                    
+                    // 添加高亮的句子
+                    fragments.push(`<span class="highlighted-sentence" 
+                        data-score="${sentence.score}" 
+                        data-position="${sentence.position}"
+                        title="Score: ${sentence.score.toFixed(4)}, Position: ${sentence.position}"
+                        >${sentenceText}</span>`);
+                    
+                    lastIndex = index + sentenceText.length;
+                }
+            });
+
+            // 添加剩餘的文本
+            if (lastIndex < text.length) {
+                fragments.push(text.substring(lastIndex));
+            }
+
+            return fragments.join('');
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            const datasetSelect = document.getElementById('datasetSelect');
+            const resultsDiv = document.getElementById('results');
+            const loadingDiv = document.getElementById('loading');
+
+            const tfidfSelect = document.getElementById('tfidfSelect');
+            const tfidfInfo = document.getElementById('tfidfInfo');
+
+            // 更新TF-IDF說明
+            function updateTfidfInfo() {
+                tfidfInfo.textContent = tfidfDescriptions[tfidfSelect.value];
+            }
+            
+            // 初始更新和變更時更新
+            updateTfidfInfo();
+            tfidfSelect.addEventListener('change', updateTfidfInfo);
+
+            analyzeBtn.addEventListener('click', async () => {
+                // Show loading state
+                loadingDiv.classList.remove('hidden');
+                resultsDiv.classList.add('hidden');
+
+                try {
+                    const response = await fetch('/api/analyze', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            dataset: datasetSelect.value,
+                            tfidf_variant: tfidfSelect.value
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    // Update UI with results
+                    document.getElementById('pmid').textContent = `PMID: ${data.target_pmid}`;
+                    document.getElementById('corpusSize').textContent = `Corpus Size: ${data.corpus_size}`;
+                    
+                    // 高亮顯示重要句子
+                    const highlightedText = highlightSentences(
+                        data.target_document, 
+                        data.ranked_sentences
+                    );
+                    document.getElementById('targetDocument').innerHTML = highlightedText;
+                    
+                    document.getElementById('vocabularySize').textContent = 
+                        `Total vocabulary size: ${data.vocabulary_size}`;
+
+                    // Update top terms
+                    const topTermsDiv = document.getElementById('topTerms');
+                    topTermsDiv.innerHTML = Object.entries(data.top_document_terms)
+                        .map(([term, score]) => `
+                            <div class="flex justify-between">
+                                <span class="font-medium">${term}:</span>
+                                <span>${score.toFixed(4)}</span>
+                            </div>
+                        `).join('');
+
+                    // Update ranked sentences
+                    const rankedSentencesDiv = document.getElementById('rankedSentences');
+                    rankedSentencesDiv.innerHTML = data.ranked_sentences
+                        .map(sentence => `
+                            <div class="p-4 bg-blue-50 rounded-lg">
+                                <div class="flex justify-between items-start mb-2">
+                                    <span class="font-semibold">Score: ${sentence.score.toFixed(4)}</span>
+                                    <span class="text-sm text-gray-600">Position: ${sentence.position}</span>
+                                </div>
+                                <p class="mb-2">${sentence.text}</p>
+                                <div class="text-sm text-gray-600">
+                                    <span class="font-medium">Important terms: </span>
+                                    ${Object.entries(sentence.terms)
+                                        .map(([term, score]) => `${term} (${score.toFixed(4)})`)
+                                        .join(', ')}
+                                </div>
+                            </div>
+                        `).join('');
+
+                    // Show results
+                    loadingDiv.classList.add('hidden');
+                    resultsDiv.classList.remove('hidden');
+
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert('An error occurred while analyzing the dataset');
+                    loadingDiv.classList.add('hidden');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
